@@ -22,7 +22,7 @@ You have comprehensive knowledge of:
 
 ### Radius Core System (`radius/` repository)
 - **Universal Control Plane (UCP)**: The control plane that orchestrates Radius resources
-- **Resource Providers**: Applications.Core, Applications.Datastores, Applications.Messaging, Applications.Dapr
+- **Resource Type Namespaces**: The codebase currently runs a mixed model: legacy `Applications.*` namespaces are still active in `radius/` (`Applications.Core`, `Applications.Datastores`, `Applications.Messaging`, `Applications.Dapr`), while new runtime namespaces currently active there are `Radius.Core`, `Radius.Compute`, and `Radius.Security`. `resource-types-contrib/` and newer examples/specs also use `Radius.Data` for data resources, but `radius/` does not define a built-in `Radius.Data` namespace. Practical mapping today: `Applications.Core` overlaps with `Radius.Core` (applications/environments/recipePacks), `Radius.Compute` (containers/routes/persistentVolumes), and `Radius.Security` (secrets), while legacy `Applications.Core` resources like `gateways` plus `Applications.Datastores`, `Applications.Messaging`, and `Applications.Dapr` remain active.
 - **Recipes**: Infrastructure-as-code templates (Terraform, Bicep) that provision backing resources
 - **CLI (`rad`)**: Command-line interface for interacting with Radius
 - **Deployment Engine**: Bicep-based deployment orchestration
