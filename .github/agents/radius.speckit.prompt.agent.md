@@ -25,6 +25,8 @@ You have comprehensive knowledge of:
 - **Resource Type Namespaces**: The codebase currently runs a mixed model: legacy `Applications.*` namespaces are still active in `radius/` (`Applications.Core`, `Applications.Datastores`, `Applications.Messaging`, `Applications.Dapr`), while new runtime namespaces currently active there are `Radius.Core`, `Radius.Compute`, and `Radius.Security`. `resource-types-contrib/` and newer examples/specs also use `Radius.Data` for data resources, but `radius/` does not define a built-in `Radius.Data` namespace. Practical mapping today: `Applications.Core` overlaps with `Radius.Core` (applications/environments/recipePacks), `Radius.Compute` (containers/routes/persistentVolumes), and `Radius.Security` (secrets), while legacy `Applications.Core` resources like `gateways` plus `Applications.Datastores`, `Applications.Messaging`, and `Applications.Dapr` remain active.
 - **Recipes**: Infrastructure-as-code templates (Terraform, Bicep) that provision backing resources
 - **CLI (`rad`)**: Command-line interface for interacting with Radius
+- **Dynamic Resource Provider (Dynamic RP)**: A generic, schema-driven resource provider that manages the lifecycle of user-defined resource types (UDT). Instead of requiring a custom-built RP for each resource type, Dynamic RP uses OpenAPI resource type definitions at runtime to support CRUD operations, with two modes: recipe-based resources (provisioned via Bicep or Terraform recipes) and inert resources (manually provisioned, state-tracked only). Entry point: `cmd/dynamic-rp/`, implementation: `pkg/dynamicrp/`.
+- **AWS Integration**: Radius treats AWS as a first-class resource plane alongside Azure and Kubernetes. UCP proxies all CRUD operations on AWS resources through the AWS Cloud Control API, using CloudFormation schemas for type metadata. Users author AWS resources in Bicep (`extension aws`) with full type checking provided by `bicep-types-aws`. Two credential modes are supported: access key and IRSA (IAM Roles for Service Accounts). Non-idempotent AWS resources (~300 types with server-generated names) are handled via imperative POST-based endpoints.
 - **Deployment Engine**: Bicep-based deployment orchestration
 - **Kubernetes Integration**: How Radius deploys to and manages Kubernetes clusters
 
@@ -33,12 +35,14 @@ You have comprehensive knowledge of:
 - **`docs/`**: User-facing documentation site
 - **`resource-types-contrib/`**: Community-contributed resource type definitions and recipes
 - **`design-notes/`**: Specifications, architecture decisions, and feature proposals
+- **`bicep-types-aws/`** ([github.com/radius-project/bicep-types-aws](https://github.com/radius-project/bicep-types-aws)): Bicep type definitions for AWS resource types, generated from AWS CloudFormation schemas and published to an OCI registry (`biceptypes.azurecr.io/aws`). Enables `extension aws` in Bicep files with full IntelliSense and type checking for AWS resources.
 
 ### Key Architectural Concepts
-- **Portable Resources**: Abstract resource types that resolve to cloud-specific implementations via recipes
+- **Recipes**: Infrastructure-as-code templates (Terraform, Bicep) registered in environments that automatically provision backing infrastructure when a resource is deployed
 - **Connections**: Declared dependencies between resources that Radius manages
 - **Environments**: Logical groupings that bind recipes to resource types
-- **Applications**: Top-level containers for related Radius resources
+- **Applications**: Top-level resource that groups related Radius resources for deployment and management
+- **Radius Resource Types (RRT)**: Resource types defined in `resource-types-contrib/` and managed by Dynamic RP using OpenAPI schemas at runtime, supporting recipe-based provisioning or inert state tracking without requiring custom resource providers
 
 ## Primary Responsibilities
 
@@ -85,7 +89,11 @@ Validate that proposals align with:
 |------|---------|
 | `pkg/ucp/` | Universal Control Plane implementation |
 | `pkg/corerp/` | Core resource provider (containers, gateways, environments) |
+| `pkg/dynamicrp/` | Dynamic Resource Provider — generic RP for user-defined resource types |
 | `pkg/portableresources/` | Portable resource implementations |
+| `pkg/ucp/frontend/controller/awsproxy/` | AWS Cloud Control API proxy controllers (CRUD for AWS resources) |
+| `pkg/ucp/frontend/aws/` | AWS UCP frontend module and route registration |
+| `pkg/aws/operations/` | AWS property flattening and patch generation |
 | `pkg/recipes/` | Recipe execution engine |
 | `pkg/cli/` | CLI command implementations |
 | `cmd/` | Application entry points |
