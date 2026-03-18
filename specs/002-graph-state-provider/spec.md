@@ -93,15 +93,15 @@ As a platform engineer, I want every state mutation to be recorded as a Git comm
 
 ### Edge Cases
 
-- What happens when the Git repository's disk is full and a save is attempted?
-- How does the system handle a corrupted Git object database?
-- What happens when two concurrent save operations target the same resource simultaneously?
-- How does the system behave when the configured graph name contains invalid characters?
-- What happens when a `Get` is issued for a resource ID that was never saved?
-- How does the system handle extremely deep resource hierarchies (e.g., deeply nested scopes)?
-- What happens when the remote URL provided by the CLI is unreachable or the clone fails?
-- What happens when Git credentials are missing and the remote repository is private?
-- How does the system handle resource IDs with special characters that may conflict with Git path conventions?
+- What happens when the Git repository's disk is full and a save is attempted? → The go-git library returns an I/O error; the graph store wraps and returns it to the caller. The staging-ref rollback logic restores pre-operation state.
+- How does the system handle a corrupted Git object database? → The go-git library returns an error on object access; the graph store wraps and returns it. Recovery is the operator's responsibility using standard Git tooling (`git fsck`).
+- What happens when two concurrent save operations target the same resource simultaneously? → In the single-process model, Go's mutex serializes access. In a multi-process model (out of scope), Git's lockfile mechanism provides basic protection. OCC via ETags rejects stale writes.
+- How does the system behave when the configured graph name contains invalid characters? → The grif library's `ValidateGraphName()` rejects invalid names at initialization time with a descriptive error.
+- What happens when a `Get` is issued for a resource ID that was never saved? → Returns `database.ErrNotFound{ID: id}`.
+- How does the system handle extremely deep resource hierarchies (e.g., deeply nested scopes)? → Git trees support arbitrary nesting depth. Performance may degrade with extremely deep paths (>50 segments) but Radius resource IDs are bounded by convention to ~10-15 segments.
+- What happens when the remote URL provided by the CLI is unreachable or the clone fails? → The clone operation returns an error; the factory function wraps it with context and returns it, preventing startup.
+- What happens when Git credentials are missing and the remote repository is private? → The go-git clone fails with an authentication error; the factory function returns a descriptive error indicating credentials are required.
+- How does the system handle resource IDs with special characters that may conflict with Git path conventions? → Radius resource IDs are URL-path-safe by convention (alphanumeric, hyphens, dots, underscores, forward slashes). The path mapper lowercases all segments but does not encode special characters. IDs containing characters invalid in Git tree entry names (NUL, `/` within a segment) would fail at the grif layer with a descriptive error. A validation check in the path mapper rejects IDs with empty segments or NUL bytes.
 - If a commit fails after data has been staged (e.g., disk I/O error), the system MUST automatically roll back the staging ref to its pre-operation state and return an error to the caller. No partial staged data may persist.
 
 ## Requirements *(mandatory)*
@@ -122,15 +122,15 @@ As a platform engineer, I want every state mutation to be recorded as a Git comm
 - **FR-012**: System MUST handle scope queries by converting scope types to resource types using established Radius scope conversion utilities.
 - **FR-013**: System MUST register as a new database provider type in the Radius provider/factory pattern, selectable via YAML configuration.
 - **FR-014**: System MUST initialize the graph ref on first use if it does not already exist, creating the named graph in the Git repository.
-- **FR-017**: The Radius CLI MUST detect when the database provider is configured as the graph store and read the Git remote/origin URL from the local repository to pass to the control plane.
-- **FR-018**: The control plane MUST clone the Git repository from the provided remote URL on startup if a local clone does not already exist.
-- **FR-019**: The control plane MUST support reading Git credentials from environment variables (e.g., `GIT_TOKEN` for HTTPS, `GIT_SSH_KEY` for SSH) to authenticate when cloning private repositories. If no credentials are provided, the clone MUST proceed without authentication (public repos only).
 - **FR-015**: System MUST pass all shared conformance tests that validate `database.Client` behaviors including CRUD, optimistic concurrency, scope queries, filters, and error semantics.
 - **FR-016**: System MUST include a compile-time interface check to verify interface compliance with `database.Client`.
+- **FR-017**: The Radius CLI MUST detect when the database provider is configured as the graph store and read the Git remote/origin URL from the local repository to pass to the control plane.
+- **FR-018**: The control plane MUST clone the Git repository from the provided remote URL on startup if a local clone does not already exist.
+- **FR-019**: The control plane MUST support reading Git credentials from environment variables (e.g., `GIT_TOKEN` for HTTPS, `GIT_SSH_KEY` for SSH where `GIT_SSH_KEY` contains a base64-encoded PEM private key) to authenticate when cloning private repositories. If no credentials are provided, the clone MUST proceed without authentication (public repos only).
 
 ### Key Entities
 
-- **Graph Store Client**: The `database.Client` implementation that translates Radius storage operations into graph library calls against a Git repository.
+- **Graph Store Client**: The `database.Client` implementation that translates Radius storage operations into grif library calls against a Git repository.
 - **Resource Object**: A database object containing the resource ID, resource type, root scope, routing scope, data payload, and ETag. Serialized as JSON for blob storage.
 - **Graph Ref**: A single Git ref that holds all Radius state within the Git repository. The graph name is configurable (default: `radius`), resulting in a ref at `refs/infra/<name>`. The ref points to the latest commit representing the current state snapshot.
 - **Tree Path**: The deterministic mapping of a Radius resource ID to a hierarchical path within the graph's tree structure. Each `/`-delimited segment of the normalized resource ID is lowercased to form a corresponding tree path segment (direct segment mapping). The mapping is reversible.
@@ -141,10 +141,10 @@ As a platform engineer, I want every state mutation to be recorded as a Git comm
 ### Measurable Outcomes
 
 - **SC-001**: All shared conformance tests pass against the graph store client, demonstrating behavioral parity with existing backends.
-- **SC-002**: Platform engineers can configure the graph store backend in under 5 minutes by adding a database provider section to the Radius YAML configuration file.
+- **SC-002**: The quickstart guide requires no more than 5 configuration lines and 2 commands to enable the graph store backend.
 - **SC-003**: Resources saved through the graph store are recoverable from a fresh clone of the Git repository — state survives process restarts when backed by a persistent repository.
 - **SC-004**: Every state mutation (save, delete) produces a distinct Git commit, enabling operators to inspect the full change history using standard Git tooling.
-- **SC-005**: The graph store handles at least 100 resources across 10 scopes without query response degradation noticeable to the control plane (sub-second for typical scope queries).
+- **SC-005**: A query over a scope containing up to 100 resources completes in under 1 second (wall-clock, p95) across 10 scopes.
 - **SC-006**: Concurrent save operations to different resources succeed without data loss; concurrent saves to the same resource are correctly rejected via OCC when ETags conflict.
 - **SC-007**: A contributor can run Radius locally with the graph store backend without installing any external database — only a Git repository on the local filesystem is required.
 
@@ -162,7 +162,7 @@ As a platform engineer, I want every state mutation to be recorded as a Git comm
 
 - The initial implementation targets a single-process deployment model. Multi-process or multi-replica concurrency is out of scope for the first version and will rely on the version control system's built-in file locking.
 - Remote synchronization (push/pull to a remote repository) beyond the initial clone is out of scope for the initial implementation. The control plane clones the repository on startup; ongoing push/sync is deferred.
-- The graph library provides sufficient operations for all required functionality (initialization, put, get, delete, commit, tree walking for queries). Any library gaps will be addressed as separate contributions.
+- The grif library provides sufficient operations for all required functionality (initialization, put, get, delete, commit, tree walking for queries). Any library gaps will be addressed as separate contributions.
 - The initial implementation prioritizes correctness over performance. Performance optimization (e.g., caching, batch commits) can be addressed in future iterations.
 - Resource IDs are case-insensitive, matching the behavior of other Radius database backends. The ID-to-path mapping lowercases all path segments.
 - The repository used by the graph store may be the same repository that contains the Radius source code, or it may be a separate dedicated repository. The implementation is agnostic to this choice.
@@ -172,7 +172,7 @@ As a platform engineer, I want every state mutation to be recorded as a Git comm
 
 ### In Scope
 
-- New `database.Client` implementation backed by the graph library
+- New `database.Client` implementation backed by the grif library
 - Provider registration in the database provider/factory pattern
 - YAML configuration options for the graph store (repository path, graph name)
 - Shared conformance test integration

@@ -107,6 +107,8 @@ Full grif path: "radius/planes/radius/local/resourcegroups/rg1/providers/applica
 
 **Reversibility**: `treePathToID(path string) string` — prepend `/` and join segments with `/`. Case is lost (all lowercase) but Radius IDs are case-insensitive.
 
+**Special Character Handling**: Radius resource IDs are URL-path-safe by convention (alphanumeric, hyphens, dots, forward slashes). The path mapper validates inputs and rejects IDs containing empty segments (`//`) or NUL bytes. No percent-encoding or escaping is required because the character set maps directly to valid Git tree entry names. The lowercasing step (`NormalizePart`) is the only transformation applied.
+
 ### 3. Graph Ref
 
 A Git reference tracking the current state of all Radius resources.

@@ -11,6 +11,8 @@
 - **[Story]**: Which user story this task belongs to (e.g., US1, US2)
 - Exact file paths included in descriptions
 
+**Note**: Within each phase, follow test-first (red-green-refactor) workflow. Write tests before implementation regardless of listed order.
+
 ## Phase 1: Setup (Shared Infrastructure)
 
 **Purpose**: Add the grif dependency, create the `graphstore` package skeleton, and register the new provider type.
@@ -30,7 +32,7 @@
 
 - [ ] T005 Implement `idToTreePath` and `idToGrifPath` path-mapping functions in pkg/components/database/graphstore/pathmapper.go
 - [ ] T006 Implement `scopeToGrifPath` scope-to-path mapping in pkg/components/database/graphstore/pathmapper.go
-- [ ] T007 [P] Write unit tests for all path-mapping functions in pkg/components/database/graphstore/pathmapper_test.go
+- [ ] T007 [P] Write unit tests for all path-mapping functions, including special characters and empty segments, in pkg/components/database/graphstore/pathmapper_test.go
 - [ ] T008 Implement `storedObject` type and marshal/unmarshal helpers in pkg/components/database/graphstore/client.go
 - [ ] T009 Implement `NewClient` constructor (graph init-if-not-exists, default graph name) in pkg/components/database/graphstore/client.go
 - [ ] T010 Add compile-time interface check `var _ database.Client = (*Client)(nil)` in pkg/components/database/graphstore/client.go
@@ -50,7 +52,7 @@
 
 - [ ] T012 [US1] Implement `Get` method — parse ID, call grif `Get`, unmarshal `storedObject`, return `database.Object` — in pkg/components/database/graphstore/client.go
 - [ ] T013 [US1] Implement `Save` method — compute ETag, build `storedObject`, call grif `Put` + `Commit`, handle rollback on commit failure — in pkg/components/database/graphstore/client.go
-- [ ] T014 [US1] Implement `Delete` method (without ETag) — call grif `DeleteNode` + `Commit`, return `ErrNotFound` if absent — in pkg/components/database/graphstore/client.go
+- [ ] T014 [US1] Implement `Delete` method — core logic (not-found handling, stage + commit); ETag enforcement added in T028 — in pkg/components/database/graphstore/client.go
 - [ ] T015 [US1] Add staging-ref rollback logic: capture pre-operation staging ref hash in Save/Delete, restore on commit error in pkg/components/database/graphstore/client.go
 - [ ] T016 [US1] Write unit tests for `Get` (success, not-found, invalid ID) in pkg/components/database/graphstore/client_test.go
 - [ ] T017 [US1] Write unit tests for `Save` (create new, update existing, verify ETag returned) in pkg/components/database/graphstore/client_test.go
@@ -111,6 +113,8 @@
 - [ ] T033 [US4] Implement Git clone logic in factory function — if `RemoteURL` is set and `RepoPath` does not exist, clone using go-git with optional credential support (`GIT_TOKEN`, `GIT_SSH_KEY` env vars) in pkg/components/database/databaseprovider/factory.go
 - [ ] T034 [US4] Write unit test for factory — valid config initializes client, missing repo path errors, invalid graph name errors — in pkg/components/database/databaseprovider/factory_test.go
 - [ ] T035 [P] [US4] Add example graph store configuration entries to build/configs/ucp-dev.yaml and build/configs/applications-rp-dev.yaml (commented out)
+- [ ] T036 [US4] Implement CLI remote URL detection — when `provider: graphstore`, read the Git remote/origin URL from the local repository at `repoPath` using go-git and expose it for propagation to the control plane — in pkg/cli/ (location TBD based on CLI config flow)
+- [ ] T037 [US4] Write unit test for CLI remote URL detection — valid repo returns URL, missing remote returns empty, invalid repo path errors — in pkg/cli/ (location TBD)
 
 **Checkpoint**: Provider is selectable via YAML config. Control plane can clone from remote URL on startup.
 
@@ -124,20 +128,23 @@
 
 ### Implementation for User Story 5
 
-- [ ] T036 [US5] Enhance commit messages in `Save` and `Delete` methods to include the resource path and operation type (e.g., "Save: planes/radius/local/...") in pkg/components/database/graphstore/client.go
-- [ ] T037 [US5] Write integration test verifying commit messages reference affected resource paths and operations in pkg/components/database/graphstore/client_test.go
+- [ ] T038 [US5] Enhance commit messages in `Save` and `Delete` methods to include the resource path and operation type (e.g., "Save: planes/radius/local/...") in pkg/components/database/graphstore/client.go
+- [ ] T039 [US5] Write integration test verifying commit messages reference affected resource paths and operations in pkg/components/database/graphstore/client_test.go
 
 **Checkpoint**: Audit trail is human-readable via standard Git tooling.
 
 ---
 
-## Phase 8: Conformance Tests & Shared Test Suite
+## Phase 8: Conformance Tests & Validation
 
-**Purpose**: Integrate with the shared conformance test suite to prove behavioral parity with existing backends.
+**Purpose**: Integrate with the shared conformance test suite and validate success criteria that require dedicated tests.
 
-- [ ] T038 Wire up shared conformance tests from test/ucp/storetest by calling `storetest.RunTest(t, client)` in pkg/components/database/graphstore/client_test.go
-- [ ] T039 Fix any conformance test failures identified by the shared test suite in pkg/components/database/graphstore/client.go
-- [ ] T040 Run full test suite (`go test ./pkg/components/database/graphstore/ -v`) and verify all tests pass
+- [ ] T040 Wire up shared conformance tests from test/ucp/storetest by calling `storetest.RunTest(t, client)` in pkg/components/database/graphstore/client_test.go
+- [ ] T041 Fix any conformance test failures identified by the shared test suite in pkg/components/database/graphstore/client.go
+- [ ] T042 [P] Write integration test for SC-003 (clone recovery): save resources, clone the repo to a new temp directory, create a new client against the clone, verify all resources are retrievable in pkg/components/database/graphstore/client_test.go
+- [ ] T043 [P] Write benchmark test for SC-005 (query performance): insert 100 resources across 10 scopes, measure query latency, assert p95 < 1 second in pkg/components/database/graphstore/client_test.go
+- [ ] T044 [P] Write concurrency test for SC-006: launch two goroutines saving the same resource concurrently, assert exactly one succeeds and one gets `ErrConcurrency` in pkg/components/database/graphstore/client_test.go
+- [ ] T045 Run full test suite (`go test ./pkg/components/database/graphstore/ -v -bench=.`) and verify all tests pass
 
 **Checkpoint**: All conformance tests pass — behavioral parity with existing backends is proven (SC-001).
 
@@ -147,10 +154,10 @@
 
 **Purpose**: Documentation, config examples, and cleanup.
 
-- [ ] T041 [P] Add godoc comments to all exported types and functions in pkg/components/database/graphstore/
-- [ ] T042 [P] Validate quickstart.md instructions work end-to-end against a real Git repository
-- [ ] T043 Run `make lint` and fix any linting issues in new code
-- [ ] T044 Run `make format-check` and fix any formatting issues in new code
+- [ ] T046 [P] Add godoc comments to all exported types and functions in pkg/components/database/graphstore/
+- [ ] T047 [P] Validate quickstart.md instructions work end-to-end against a real Git repository (also validates SC-007: no external DB required)
+- [ ] T048 Run `make lint` and fix any linting issues in new code
+- [ ] T049 Run `make format-check` and fix any formatting issues in new code
 
 ---
 
@@ -182,7 +189,8 @@
 - T005/T006 and T007 can overlap (write mapper then immediately test)
 - US2 and US3 can run in parallel after US1 completes (different concerns, mostly different code sections)
 - T035 can run in parallel with other US4 tasks (config files are independent)
-- T041 and T042 can run in parallel with each other (docs vs. testing)
+- T042, T043, T044 can run in parallel with each other (independent test scenarios)
+- T046 and T047 can run in parallel with each other (docs vs. testing)
 
 ---
 
@@ -202,9 +210,9 @@
 2. US1 → Save/Get/Delete work → MVP!
 3. US2 → Query works → Control plane can list resources
 4. US3 → OCC enforced → Concurrent correctness
-5. US4 → Provider registered → YAML-configurable
+5. US4 → Provider registered + CLI remote URL detection → YAML-configurable
 6. US5 → Audit trail validated → Differentiated feature proven
-7. Conformance → Parity proven → Production-ready
+7. Conformance → Parity proven, SC-003/SC-005/SC-006 verified → Production-ready
 
 ### Task Counts
 
@@ -215,8 +223,8 @@
 | US1 (P1) | 8 | 0 |
 | US2 (P2) | 7 | 0 |
 | US3 (P2) | 4 | 0 |
-| US4 (P3) | 5 | 1 |
+| US4 (P3) | 7 | 1 |
 | US5 (P3) | 2 | 0 |
-| Conformance | 3 | 0 |
+| Conformance | 6 | 3 |
 | Polish | 4 | 2 |
-| **Total** | **44** | **6** |
+| **Total** | **49** | **9** |
