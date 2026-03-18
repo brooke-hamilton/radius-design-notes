@@ -70,6 +70,8 @@ As a Radius operator, I want to enable the graph store backend by specifying it 
 1. **Given** a Radius configuration file specifies the graph store as the database provider type, **When** Radius starts, **Then** the graph store client is initialized with the configured Git repository path and graph name.
 2. **Given** an invalid or inaccessible Git repository path is configured, **When** Radius starts, **Then** an informative error message is returned and startup fails gracefully.
 3. **Given** the graph store is configured, **When** the provider initializes, **Then** the graph ref is created in the Git repository if it does not already exist.
+4. **Given** the CLI detects the state store is Git-backed, **When** the CLI communicates with the control plane, **Then** the remote/origin URL from the local Git repository is provided to the control plane.
+5. **Given** the control plane receives a remote URL, **When** no local clone exists, **Then** the control plane clones the repository before initializing the graph store client.
 
 ---
 
@@ -97,8 +99,10 @@ As a platform engineer, I want every state mutation to be recorded as a Git comm
 - How does the system behave when the configured graph name contains invalid characters?
 - What happens when a `Get` is issued for a resource ID that was never saved?
 - How does the system handle extremely deep resource hierarchies (e.g., deeply nested scopes)?
-- What happens when the Git repository path does not exist and cannot be created?
+- What happens when the remote URL provided by the CLI is unreachable or the clone fails?
+- What happens when Git credentials are missing and the remote repository is private?
 - How does the system handle resource IDs with special characters that may conflict with Git path conventions?
+- If a commit fails after data has been staged (e.g., disk I/O error), the system MUST automatically roll back the staging ref to its pre-operation state and return an error to the caller. No partial staged data may persist.
 
 ## Requirements *(mandatory)*
 
@@ -118,6 +122,9 @@ As a platform engineer, I want every state mutation to be recorded as a Git comm
 - **FR-012**: System MUST handle scope queries by converting scope types to resource types using established Radius scope conversion utilities.
 - **FR-013**: System MUST register as a new database provider type in the Radius provider/factory pattern, selectable via YAML configuration.
 - **FR-014**: System MUST initialize the graph ref on first use if it does not already exist, creating the named graph in the Git repository.
+- **FR-017**: The Radius CLI MUST detect when the database provider is configured as the graph store and read the Git remote/origin URL from the local repository to pass to the control plane.
+- **FR-018**: The control plane MUST clone the Git repository from the provided remote URL on startup if a local clone does not already exist.
+- **FR-019**: The control plane MUST support reading Git credentials from environment variables (e.g., `GIT_TOKEN` for HTTPS, `GIT_SSH_KEY` for SSH) to authenticate when cloning private repositories. If no credentials are provided, the clone MUST proceed without authentication (public repos only).
 - **FR-015**: System MUST pass all shared conformance tests that validate `database.Client` behaviors including CRUD, optimistic concurrency, scope queries, filters, and error semantics.
 - **FR-016**: System MUST include a compile-time interface check to verify interface compliance with `database.Client`.
 
@@ -125,8 +132,8 @@ As a platform engineer, I want every state mutation to be recorded as a Git comm
 
 - **Graph Store Client**: The `database.Client` implementation that translates Radius storage operations into graph library calls against a Git repository.
 - **Resource Object**: A database object containing the resource ID, resource type, root scope, routing scope, data payload, and ETag. Serialized as JSON for blob storage.
-- **Graph Ref**: A Git ref that identifies the named graph within the Git repository. Each graph ref points to the latest commit representing the current state snapshot.
-- **Tree Path**: The deterministic mapping of a Radius resource ID to a hierarchical path within the graph's tree structure. Derived from the normalized and lowercased segments of the resource ID.
+- **Graph Ref**: A single Git ref that holds all Radius state within the Git repository. The graph name is configurable (default: `radius`), resulting in a ref at `refs/infra/<name>`. The ref points to the latest commit representing the current state snapshot.
+- **Tree Path**: The deterministic mapping of a Radius resource ID to a hierarchical path within the graph's tree structure. Each `/`-delimited segment of the normalized resource ID is lowercased to form a corresponding tree path segment (direct segment mapping). The mapping is reversible.
 - **Staging Ref**: A Git ref used internally to track uncommitted changes before they are committed to the graph ref.
 
 ## Success Criteria *(mandatory)*
@@ -141,10 +148,20 @@ As a platform engineer, I want every state mutation to be recorded as a Git comm
 - **SC-006**: Concurrent save operations to different resources succeed without data loss; concurrent saves to the same resource are correctly rejected via OCC when ETags conflict.
 - **SC-007**: A contributor can run Radius locally with the graph store backend without installing any external database — only a Git repository on the local filesystem is required.
 
+## Clarifications
+
+### Session 2026-03-18
+
+- Q: How should Radius resource IDs map to grif tree paths? → A: Direct segment mapping — each `/`-delimited segment is lowercased to form the tree path (e.g., `/planes/radius/local/resourceGroups/rg1/...` → `planes/radius/local/resourcegroups/rg1/...`).
+- Q: What should happen to staged but uncommitted data if a commit fails mid-operation? → A: Automatically roll back the staging ref to its pre-operation state and return an error to the caller.
+- Q: Should all Radius state live under a single graph ref or be partitioned across multiple graphs? → A: Single graph ref for all Radius state. The graph name is configurable (default: `radius`).
+- Q: How does the control plane obtain a Git repository to operate on? → A: The Radius CLI detects that the state store is configured as Git, reads the remote/origin URL from the local Git repository, and passes it to the control plane. The control plane clones the repository on startup.
+- Q: How should the control plane obtain Git credentials for cloning a private remote repository? → A: Via environment variables on the control plane container (e.g., `GIT_TOKEN`, `GIT_SSH_KEY`).
+
 ## Assumptions
 
 - The initial implementation targets a single-process deployment model. Multi-process or multi-replica concurrency is out of scope for the first version and will rely on the version control system's built-in file locking.
-- Remote synchronization (push/pull to a remote repository) is out of scope for the initial implementation. The graph store operates on a local repository only.
+- Remote synchronization (push/pull to a remote repository) beyond the initial clone is out of scope for the initial implementation. The control plane clones the repository on startup; ongoing push/sync is deferred.
 - The graph library provides sufficient operations for all required functionality (initialization, put, get, delete, commit, tree walking for queries). Any library gaps will be addressed as separate contributions.
 - The initial implementation prioritizes correctness over performance. Performance optimization (e.g., caching, batch commits) can be addressed in future iterations.
 - Resource IDs are case-insensitive, matching the behavior of other Radius database backends. The ID-to-path mapping lowercases all path segments.
@@ -163,13 +180,15 @@ As a platform engineer, I want every state mutation to be recorded as a Git comm
 - ETag computation and OCC enforcement
 - Scope-based and type-based query support with pagination
 - Unit and integration tests for the graph store package
+- CLI detection of Git-backed state store and remote URL propagation to control plane
+- Control plane Git clone on startup from remote URL
+- Git credential support via environment variables (HTTPS token, SSH key)
 
 ### Out of Scope
 
 - Remote synchronization (push/pull to hosted repositories)
 - Multi-process or multi-replica concurrency support
 - Deployment configurations (Helm chart, Kubernetes manifests)
-- Credential management for remote repositories
 - Container filesystem / persistent volume provisioning strategies
 - Performance benchmarking or optimization beyond baseline correctness
 - Web UI, REST API, or CLI commands specific to the graph store
