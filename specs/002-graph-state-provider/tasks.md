@@ -17,10 +17,10 @@
 
 **Purpose**: Add the grif dependency, create the `graphstore` package skeleton, and register the new provider type.
 
-- [ ] T001 Add `github.com/brooke-hamilton/git-infra-graph` dependency to go.mod
-- [ ] T002 Create package directory and doc.go at pkg/components/database/graphstore/doc.go
-- [ ] T003 [P] Add `TypeGraphStore` constant to pkg/components/database/databaseprovider/types.go
-- [ ] T004 [P] Add `GraphStoreOptions` struct and `GraphStore` field on `Options` to pkg/components/database/databaseprovider/options.go
+- [X] T001 Add `github.com/brooke-hamilton/git-infra-graph` dependency to go.mod
+- [X] T002 Create package directory and doc.go at pkg/components/database/graphstore/doc.go
+- [X] T003 [P] Add `TypeGraphStore` constant to pkg/components/database/databaseprovider/types.go
+- [X] T004 [P] Add `GraphStoreOptions` struct and `GraphStore` field on `Options` to pkg/components/database/databaseprovider/options.go
 
 ---
 
@@ -30,13 +30,13 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T005 Implement `idToTreePath` and `idToGrifPath` path-mapping functions in pkg/components/database/graphstore/pathmapper.go
-- [ ] T006 Implement `scopeToGrifPath` scope-to-path mapping in pkg/components/database/graphstore/pathmapper.go
-- [ ] T007 [P] Write unit tests for all path-mapping functions, including special characters and empty segments, in pkg/components/database/graphstore/pathmapper_test.go
-- [ ] T008 Implement `storedObject` type and marshal/unmarshal helpers in pkg/components/database/graphstore/client.go
-- [ ] T009 Implement `NewClient` constructor (graph init-if-not-exists, default graph name) in pkg/components/database/graphstore/client.go
-- [ ] T010 Add compile-time interface check `var _ database.Client = (*Client)(nil)` in pkg/components/database/graphstore/client.go
-- [ ] T011 Implement test helper `setupTestRepo` that creates a temp Git repository with an initial commit in pkg/components/database/graphstore/client_test.go
+- [X] T005 Implement `idToTreePath` and `idToGrifPath` path-mapping functions in pkg/components/database/graphstore/pathmapper.go
+- [X] T006 Implement `scopeToGrifPath` scope-to-path mapping in pkg/components/database/graphstore/pathmapper.go
+- [X] T007 [P] Write unit tests for all path-mapping functions, including special characters and empty segments, in pkg/components/database/graphstore/pathmapper_test.go
+- [X] T008 Implement `storedObject` type and marshal/unmarshal helpers in pkg/components/database/graphstore/client.go
+- [X] T009 Implement `NewClient` constructor (graph init-if-not-exists, default graph name) in pkg/components/database/graphstore/client.go
+- [X] T010 Add compile-time interface check `var _ database.Client = (*Client)(nil)` in pkg/components/database/graphstore/client.go
+- [X] T011 Implement test helper `setupTestRepo` that creates a temp Git repository with an initial commit in pkg/components/database/graphstore/client_test.go
 
 **Checkpoint**: Foundation ready — `NewClient` can create a graph store client against a live Git repository.
 
@@ -50,14 +50,14 @@
 
 ### Implementation for User Story 1
 
-- [ ] T012 [US1] Implement `Get` method — parse ID, call grif `Get`, unmarshal `storedObject`, return `database.Object` — in pkg/components/database/graphstore/client.go
-- [ ] T013 [US1] Implement `Save` method — compute ETag, build `storedObject`, call grif `Put` + `Commit`, handle rollback on commit failure — in pkg/components/database/graphstore/client.go
-- [ ] T014 [US1] Implement `Delete` method — core logic (not-found handling, stage + commit); ETag enforcement added in T028 — in pkg/components/database/graphstore/client.go
-- [ ] T015 [US1] Add staging-ref rollback logic: capture pre-operation staging ref hash in Save/Delete, restore on commit error in pkg/components/database/graphstore/client.go
-- [ ] T016 [US1] Write unit tests for `Get` (success, not-found, invalid ID) in pkg/components/database/graphstore/client_test.go
-- [ ] T017 [US1] Write unit tests for `Save` (create new, update existing, verify ETag returned) in pkg/components/database/graphstore/client_test.go
-- [ ] T018 [US1] Write unit tests for `Delete` (success, not-found) in pkg/components/database/graphstore/client_test.go
-- [ ] T019 [US1] Write integration test verifying Git commit is created per Save/Delete (inspect graph ref log) in pkg/components/database/graphstore/client_test.go
+- [X] T012 [US1] Implement `Get` method — parse ID, call grif `Get`, unmarshal `storedObject`, return `database.Object` — in pkg/components/database/graphstore/client.go
+- [X] T013 [US1] Implement `Save` method — compute ETag, build `storedObject`, call grif `Put` + `Commit`, handle rollback on commit failure — in pkg/components/database/graphstore/client.go
+- [X] T014 [US1] Implement `Delete` method — core logic (not-found handling, stage + commit); ETag enforcement added in T028 — in pkg/components/database/graphstore/client.go
+- [X] T015 [US1] Add staging-ref rollback logic: capture pre-operation staging ref hash in Save/Delete, restore on commit error in pkg/components/database/graphstore/client.go
+- [X] T016 [US1] Write unit tests for `Get` (success, not-found, invalid ID) in pkg/components/database/graphstore/client_test.go
+- [X] T017 [US1] Write unit tests for `Save` (create new, update existing, verify ETag returned) in pkg/components/database/graphstore/client_test.go
+- [X] T018 [US1] Write unit tests for `Delete` (success, not-found) in pkg/components/database/graphstore/client_test.go
+- [X] T019 [US1] Write integration test verifying Git commit is created per Save/Delete (inspect graph ref log) in pkg/components/database/graphstore/client_test.go
 
 **Checkpoint**: Save/Get/Delete work end-to-end. Each mutation creates a Git commit. User Story 1 is independently testable.
 
@@ -71,13 +71,13 @@
 
 ### Implementation for User Story 2
 
-- [ ] T020 [US2] Implement recursive tree-walk helper (`collectBlobsUnderPath`) that descends grif tree nodes to collect all leaf blobs in pkg/components/database/graphstore/client.go
-- [ ] T021 [US2] Implement `Query` method — validate query, walk scope subtree, deserialize blobs, filter by `databaseutil.IDMatchesQuery` and `MatchesFilters` — in pkg/components/database/graphstore/client.go
-- [ ] T022 [US2] Implement pagination logic — index-based continuation tokens with base64 encoding — in pkg/components/database/graphstore/client.go
-- [ ] T023 [US2] Handle scope queries (`IsScopeQuery`) using `databaseutil.ConvertScopeTypeToResourceType` in Query method in pkg/components/database/graphstore/client.go
-- [ ] T024 [US2] Write unit tests for `Query` — scope filtering, type filtering, property filtering — in pkg/components/database/graphstore/client_test.go
-- [ ] T025 [US2] Write unit tests for pagination — page size limits, continuation tokens, exhaustion — in pkg/components/database/graphstore/client_test.go
-- [ ] T026 [US2] Write unit tests for scope queries (`IsScopeQuery`, `ScopeRecursive`) in pkg/components/database/graphstore/client_test.go
+- [X] T020 [US2] Implement recursive tree-walk helper (`collectBlobsUnderPath`) that descends grif tree nodes to collect all leaf blobs in pkg/components/database/graphstore/client.go
+- [X] T021 [US2] Implement `Query` method — validate query, walk scope subtree, deserialize blobs, filter by `databaseutil.IDMatchesQuery` and `MatchesFilters` — in pkg/components/database/graphstore/client.go
+- [X] T022 [US2] Implement pagination logic — index-based continuation tokens with base64 encoding — in pkg/components/database/graphstore/client.go
+- [X] T023 [US2] Handle scope queries (`IsScopeQuery`) using `databaseutil.ConvertScopeTypeToResourceType` in Query method in pkg/components/database/graphstore/client.go
+- [X] T024 [US2] Write unit tests for `Query` — scope filtering, type filtering, property filtering — in pkg/components/database/graphstore/client_test.go
+- [X] T025 [US2] Write unit tests for pagination — page size limits, continuation tokens, exhaustion — in pkg/components/database/graphstore/client_test.go
+- [X] T026 [US2] Write unit tests for scope queries (`IsScopeQuery`, `ScopeRecursive`) in pkg/components/database/graphstore/client_test.go
 
 **Checkpoint**: Query returns filtered, paginated results. User Story 2 is independently testable.
 
@@ -91,10 +91,10 @@
 
 ### Implementation for User Story 3
 
-- [ ] T027 [US3] Add ETag comparison logic to `Save` — read existing blob, compare stored ETag with provided ETag, return `ErrConcurrency` on mismatch, return `ErrConcurrency` (not `ErrNotFound`) when resource deleted but ETag was provided — in pkg/components/database/graphstore/client.go
-- [ ] T028 [US3] Add ETag comparison logic to `Delete` — read existing blob, compare stored ETag with provided ETag, return `ErrConcurrency` on mismatch or if resource deleted — in pkg/components/database/graphstore/client.go
-- [ ] T029 [US3] Write unit tests for `Save` with ETag — correct ETag succeeds, stale ETag returns `ErrConcurrency`, deleted resource with ETag returns `ErrConcurrency` — in pkg/components/database/graphstore/client_test.go
-- [ ] T030 [US3] Write unit tests for `Delete` with ETag — correct ETag succeeds, stale ETag returns `ErrConcurrency`, deleted resource with ETag returns `ErrConcurrency` — in pkg/components/database/graphstore/client_test.go
+- [X] T027 [US3] Add ETag comparison logic to `Save` — read existing blob, compare stored ETag with provided ETag, return `ErrConcurrency` on mismatch, return `ErrConcurrency` (not `ErrNotFound`) when resource deleted but ETag was provided — in pkg/components/database/graphstore/client.go
+- [X] T028 [US3] Add ETag comparison logic to `Delete` — read existing blob, compare stored ETag with provided ETag, return `ErrConcurrency` on mismatch or if resource deleted — in pkg/components/database/graphstore/client.go
+- [X] T029 [US3] Write unit tests for `Save` with ETag — correct ETag succeeds, stale ETag returns `ErrConcurrency`, deleted resource with ETag returns `ErrConcurrency` — in pkg/components/database/graphstore/client_test.go
+- [X] T030 [US3] Write unit tests for `Delete` with ETag — correct ETag succeeds, stale ETag returns `ErrConcurrency`, deleted resource with ETag returns `ErrConcurrency` — in pkg/components/database/graphstore/client_test.go
 
 **Checkpoint**: OCC is enforced. User Story 3 is independently testable.
 
@@ -108,13 +108,13 @@
 
 ### Implementation for User Story 4
 
-- [ ] T031 [US4] Implement `initGraphStoreClient` factory function in pkg/components/database/databaseprovider/factory.go — handle default graph name, validate repo path, call `graphstore.NewClient`
-- [ ] T032 [US4] Add `TypeGraphStore: initGraphStoreClient` entry to `databaseClientFactory` map in pkg/components/database/databaseprovider/factory.go
-- [ ] T033 [US4] Implement Git clone logic in factory function — if `RemoteURL` is set and `RepoPath` does not exist, clone using go-git with optional credential support (`GIT_TOKEN`, `GIT_SSH_KEY` env vars) in pkg/components/database/databaseprovider/factory.go
-- [ ] T034 [US4] Write unit test for factory — valid config initializes client, missing repo path errors, invalid graph name errors — in pkg/components/database/databaseprovider/factory_test.go
-- [ ] T035 [P] [US4] Add example graph store configuration entries to build/configs/ucp-dev.yaml and build/configs/applications-rp-dev.yaml (commented out)
-- [ ] T036 [US4] Implement CLI remote URL detection — when `provider: graphstore`, read the Git remote/origin URL from the local repository at `repoPath` using go-git and expose it for propagation to the control plane — in pkg/cli/ (location TBD based on CLI config flow)
-- [ ] T037 [US4] Write unit test for CLI remote URL detection — valid repo returns URL, missing remote returns empty, invalid repo path errors — in pkg/cli/ (location TBD)
+- [X] T031 [US4] Implement `initGraphStoreClient` factory function in pkg/components/database/databaseprovider/factory.go — handle default graph name, validate repo path, call `graphstore.NewClient`
+- [X] T032 [US4] Add `TypeGraphStore: initGraphStoreClient` entry to `databaseClientFactory` map in pkg/components/database/databaseprovider/factory.go
+- [X] T033 [US4] Implement Git clone logic in factory function — if `RemoteURL` is set and `RepoPath` does not exist, clone using go-git with optional credential support (`GIT_TOKEN`, `GIT_SSH_KEY` env vars) in pkg/components/database/databaseprovider/factory.go
+- [X] T034 [US4] Write unit test for factory — valid config initializes client, missing repo path errors, invalid graph name errors — in pkg/components/database/databaseprovider/factory_test.go
+- [X] T035 [P] [US4] Add example graph store configuration entries to build/configs/ucp-dev.yaml and build/configs/applications-rp-dev.yaml (commented out)
+- [X] T036 [US4] Implement CLI remote URL detection — when `provider: graphstore`, read the Git remote/origin URL from the local repository at `repoPath` using go-git and expose it for propagation to the control plane — in pkg/cli/ (location TBD based on CLI config flow)
+- [X] T037 [US4] Write unit test for CLI remote URL detection — valid repo returns URL, missing remote returns empty, invalid repo path errors — in pkg/cli/ (location TBD)
 
 **Checkpoint**: Provider is selectable via YAML config. Control plane can clone from remote URL on startup.
 
@@ -128,8 +128,8 @@
 
 ### Implementation for User Story 5
 
-- [ ] T038 [US5] Enhance commit messages in `Save` and `Delete` methods to include the resource path and operation type (e.g., "Save: planes/radius/local/...") in pkg/components/database/graphstore/client.go
-- [ ] T039 [US5] Write integration test verifying commit messages reference affected resource paths and operations in pkg/components/database/graphstore/client_test.go
+- [X] T038 [US5] Enhance commit messages in `Save` and `Delete` methods to include the resource path and operation type (e.g., "Save: planes/radius/local/...") in pkg/components/database/graphstore/client.go
+- [X] T039 [US5] Write integration test verifying commit messages reference affected resource paths and operations in pkg/components/database/graphstore/client_test.go
 
 **Checkpoint**: Audit trail is human-readable via standard Git tooling.
 
@@ -139,12 +139,12 @@
 
 **Purpose**: Integrate with the shared conformance test suite and validate success criteria that require dedicated tests.
 
-- [ ] T040 Wire up shared conformance tests from test/ucp/storetest by calling `storetest.RunTest(t, client)` in pkg/components/database/graphstore/client_test.go
-- [ ] T041 Fix any conformance test failures identified by the shared test suite in pkg/components/database/graphstore/client.go
-- [ ] T042 [P] Write integration test for SC-003 (clone recovery): save resources, clone the repo to a new temp directory, create a new client against the clone, verify all resources are retrievable in pkg/components/database/graphstore/client_test.go
-- [ ] T043 [P] Write benchmark test for SC-005 (query performance): insert 100 resources across 10 scopes, measure query latency, assert p95 < 1 second in pkg/components/database/graphstore/client_test.go
-- [ ] T044 [P] Write concurrency test for SC-006: launch two goroutines saving the same resource concurrently, assert exactly one succeeds and one gets `ErrConcurrency` in pkg/components/database/graphstore/client_test.go
-- [ ] T045 Run full test suite (`go test ./pkg/components/database/graphstore/ -v -bench=.`) and verify all tests pass
+- [X] T040 Wire up shared conformance tests from test/ucp/storetest by calling `storetest.RunTest(t, client)` in pkg/components/database/graphstore/client_test.go
+- [X] T041 Fix any conformance test failures identified by the shared test suite in pkg/components/database/graphstore/client.go
+- [X] T042 [P] Write integration test for SC-003 (clone recovery): save resources, clone the repo to a new temp directory, create a new client against the clone, verify all resources are retrievable in pkg/components/database/graphstore/client_test.go
+- [X] T043 [P] Write benchmark test for SC-005 (query performance): insert 100 resources across 10 scopes, measure query latency, assert p95 < 1 second in pkg/components/database/graphstore/client_test.go
+- [X] T044 [P] Write concurrency test for SC-006: launch two goroutines saving the same resource concurrently, assert exactly one succeeds and one gets `ErrConcurrency` in pkg/components/database/graphstore/client_test.go
+- [X] T045 Run full test suite (`go test ./pkg/components/database/graphstore/ -v -bench=.`) and verify all tests pass
 
 **Checkpoint**: All conformance tests pass — behavioral parity with existing backends is proven (SC-001).
 
@@ -154,10 +154,10 @@
 
 **Purpose**: Documentation, config examples, and cleanup.
 
-- [ ] T046 [P] Add godoc comments to all exported types and functions in pkg/components/database/graphstore/
-- [ ] T047 [P] Validate quickstart.md instructions work end-to-end against a real Git repository (also validates SC-007: no external DB required)
-- [ ] T048 Run `make lint` and fix any linting issues in new code
-- [ ] T049 Run `make format-check` and fix any formatting issues in new code
+- [X] T046 [P] Add godoc comments to all exported types and functions in pkg/components/database/graphstore/
+- [X] T047 [P] Validate quickstart.md instructions work end-to-end against a real Git repository (also validates SC-007: no external DB required)
+- [X] T048 Run `make lint` and fix any linting issues in new code
+- [X] T049 Run `make format-check` and fix any formatting issues in new code
 
 ---
 
